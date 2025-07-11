@@ -80,6 +80,23 @@ for sid in motor_IDS:
     else:
         print(f"ID {sid}: Position mode enabled.")
 
+# Send all motors to 0
+
+for sid in motor_IDS:
+    packetHandler.WriteSignedPosEx(sid, 0, STS_MOVING_SPEED, STS_MOVING_ACC)
+time.sleep(1)
+# Wait until all motors have stopped moving
+all_stopped = False
+while not all_stopped:
+    all_stopped = True
+    for sid in motor_IDS:
+        moving, _, _ = packetHandler.ReadMoving(sid)
+        if moving != 0:
+            all_stopped = False
+            break
+    time.sleep(0.05)  
+
+
 def unsigned_to_signed_16bit(val):
     return val - 0x10000 if val > 0x7FFF else val
 
