@@ -4,7 +4,6 @@ import sys
 import os
 import pygame
 import time
-import threading
 
 if os.name == 'nt':
     import msvcrt
@@ -32,11 +31,6 @@ BAUDRATE = 1000000             # Default baudrate
 DEVICENAME = 'COM5'            # Change this to match port (Linux: '/dev/ttyUSB0')
 
 TICKS_PER_TURN = 4096
-prev_pos = 0
-turn_count = 0
-stop_polling = False
-abs_positions = {}
-
 
 STS_MOVING_SPEED = 2400  # Pattern of speeds
 STS_MOVING_ACC = 50
@@ -44,7 +38,11 @@ STS_MOVING_ACC = 50
 target_position = []
 maxLimits = []
 minLimits = []
-actual_position = []
+raw_position = []
+prev_pos = {}
+turn_count = {}
+abs_positions = {}
+
 
 # Setup
 
@@ -89,20 +87,25 @@ def unsigned_to_signed_16bit(val):
 
 
 def usefulinfo():
-    actual_position =[]
+    raw_position =[]
     for sid in motor_IDS:
         
         raw_pos, _, _ = packetHandler.ReadPos(sid)
-        actual_position.append(unsigned_to_signed_16bit(raw_pos))
+        raw_position.append(unsigned_to_signed_16bit(raw_pos))
 
         
         
     print("Absolute Position:", abs_positions)
-    print("Raw Position:", actual_position)
+    print("Raw Position:", raw_position)
     print("Target Position:", target_position)
 
 for sid in motor_IDS:
     target_position.append(0)
+    raw_pos, _, _ = packetHandler.ReadPos(sid)
+    raw_position.append(unsigned_to_signed_16bit(raw_pos))
+    prev_pos[sid] = unsigned_to_signed_16bit(raw_pos)
+    turn_count[sid] = 0
+    abs_positions[sid] = 0
     max_val, _, _ = packetHandler.read2ByteTxRx(sid, STS_MAX_ANGLE_LIMIT_L)
     min_val, _, _ = packetHandler.read2ByteTxRx(sid, STS_MIN_ANGLE_LIMIT_L)
     maxLimits.append(unsigned_to_signed_16bit(max_val))
@@ -130,6 +133,21 @@ while running:
 
     for sid in motor_IDS:
         packetHandler.WriteSignedPosEx(sid, target_position[sid - 1], STS_MOVING_SPEED, STS_MOVING_ACC)
+
+    for sid in motor_IDS:
+        raw_pos, _, _ = packetHandler.ReadPos(sid)
+        current_pos = unsigned_to_signed_16bit(raw_pos)
+        delta = current_pos - prev_pos[sid]
+
+        if delta > TICKS_PER_TURN / 2:
+            turn_count[sid] -= 1
+        elif delta < -TICKS_PER_TURN / 2:
+            turn_count[sid] += 1
+
+
+
+        abs_positions[sid] = current_pos + turn_count[sid] * TICKS_PER_TURN
+        prev_pos[sid] = current_pos
     
     if joystick.get_button(8):  # ESC button
         usefulinfo()
