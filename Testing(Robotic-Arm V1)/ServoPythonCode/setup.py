@@ -30,7 +30,7 @@ from STservo_sdk.sts import STS_ID
 
 # === Configuration ===
 BAUDRATE = 1000000
-DEVICENAME = 'COM5'
+DEVICENAME = 'COM3'
 STS_MOVING_SPEED = 2400
 STS_MOVING_ACC = 50
 ROTATION_TICKS = 4096  # One turn = 4096 ticks
@@ -111,7 +111,7 @@ if DESIRED_Mode == 0:
     packetHandler.write1ByteTxRx(CURRENT_ID, STS_MODE, 0)
     
     min_limit = 0
-    max_limit =  32767
+    max_limit =  23600
 
     packetHandler.write2ByteTxRx(CURRENT_ID, STS_MIN_ANGLE_LIMIT_L, min_limit & 0xFFFF)
     packetHandler.write2ByteTxRx(CURRENT_ID, STS_MAX_ANGLE_LIMIT_L, max_limit & 0xFFFF)

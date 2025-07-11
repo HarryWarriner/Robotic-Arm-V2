@@ -26,9 +26,9 @@ from STservo_sdk import *  # Uses STServo SDK library
 
 # Settings
 # STS_IDS = [4]               # Servo IDs
-motor_IDS = [1]
+motor_IDS = [1,2,3,4]
 BAUDRATE = 1000000             # Default baudrate
-DEVICENAME = 'COM5'            # Change this to match port (Linux: '/dev/ttyUSB0')
+DEVICENAME = 'COM3'            # Change this to match port (Linux: '/dev/ttyUSB0')
 
 TICKS_PER_TURN = 4096
 
@@ -81,7 +81,7 @@ for sid in motor_IDS:
         print(f"ID {sid}: Position mode enabled.")
 
 # Send all motors to 0
-
+print("Sending To Zero")
 for sid in motor_IDS:
     packetHandler.WriteSignedPosEx(sid, 0, STS_MOVING_SPEED, STS_MOVING_ACC)
 time.sleep(1)
@@ -95,7 +95,7 @@ while not all_stopped:
             all_stopped = False
             break
     time.sleep(0.05)  
-
+print("At Zero")
 
 def unsigned_to_signed_16bit(val):
     return val - 0x10000 if val > 0x7FFF else val
@@ -166,11 +166,27 @@ while running:
         abs_positions[sid] = current_pos + turn_count[sid] * TICKS_PER_TURN
         prev_pos[sid] = current_pos
     
-    if joystick.get_button(8):  # ESC button
+    if joystick.get_button(8):
         usefulinfo()
         time.sleep(0.5)
 
     if joystick.get_button(9):  # ESC button
+        # Send all motors to 0
+        print("Sending To Zero")
+        for sid in motor_IDS:
+            packetHandler.WriteSignedPosEx(sid, 0, STS_MOVING_SPEED, STS_MOVING_ACC)
+        time.sleep(1)
+        # Wait until all motors have stopped moving
+        all_stopped = False
+        while not all_stopped:
+            all_stopped = True
+            for sid in motor_IDS:
+                moving, _, _ = packetHandler.ReadMoving(sid)
+                if moving != 0:
+                    all_stopped = False
+                    break
+            time.sleep(0.05)  
+        print("At Zero")
         running = False
         break
 
