@@ -66,6 +66,15 @@ class sts(protocol_packet_handler):
         txpacket = [acc, self.sts_lobyte(position), self.sts_hibyte(position), 0, 0, self.sts_lobyte(speed), self.sts_hibyte(speed)]
         return self.writeTxRx(sts_id, STS_ACC, len(txpacket), txpacket)
     
+    def WritePosExOff(self, sts_id, position, speed, acc):
+        txpacket = [acc,
+                    self.sts_lobyte(position),
+                    self.sts_hibyte(position),
+                    0, 0,
+                    self.sts_lobyte(speed),
+                    self.sts_hibyte(speed)]
+        return self.writeTxRx(sts_id, STS_ACC, len(txpacket), txpacket)
+
     def WriteSignedPosEx(self, sts_id, signed_position, speed, acc):
         position = signed_position & 0xFFFF  # 2's complement conversion
         txpacket = [acc, position & 0xFF, (position >> 8) & 0xFF, 0, 0, speed & 0xFF, (speed >> 8) & 0xFF]

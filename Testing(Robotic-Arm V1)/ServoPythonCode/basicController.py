@@ -27,7 +27,7 @@ from STservo_sdk import *  # Uses STServo SDK library
 # STS_IDS = [4]               # Servo IDs
 motor_IDS = [1,2,3,4]
 BAUDRATE = 1000000             # Default baudrate
-DEVICENAME = 'COM5'            # Change this to match port (Linux: '/dev/ttyUSB0')
+DEVICENAME = 'COM3'            # Change this to match port (Linux: '/dev/ttyUSB0')
 
 STS_MOVING_SPEED = 2400  # Pattern of speeds
 STS_MOVING_ACC = 50
