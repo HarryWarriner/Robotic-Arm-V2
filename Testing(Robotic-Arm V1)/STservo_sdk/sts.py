@@ -61,6 +61,24 @@ class sts(protocol_packet_handler):
     def __init__(self, portHandler):
         protocol_packet_handler.__init__(self, portHandler, 0)
         self.groupSyncWrite = GroupSyncWrite(self, STS_ACC, 7)
+    
+    def ReadByte(self, sts_id, address):
+        data, sts_comm_result, sts_error = self.read1ByteTxRx(sts_id, address)
+        return data, sts_comm_result, sts_error
+      
+    def Read2Byte(self, sts_id, address):
+        data, sts_comm_result, sts_error = self.read2ByteTxRx(sts_id, address)
+        return data, sts_comm_result, sts_error
+      
+    def Read4Byte(self, sts_id, address):
+        data, sts_comm_result, sts_error = self.read4ByteTxRx(sts_id, address)
+        return data, sts_comm_result, sts_error
+    def WriteByte(self, sts_id, address, data):
+        return self.write1ByteTxRx(sts_id, address, data)
+    def Write2Byte(self, sts_id, address, data):
+        return self.write2ByteTxRx(sts_id, address, data)
+    def Write4Byte(self, sts_id, address, data):
+        return self.write4ByteTxRx(sts_id, address, data)
 
     def WritePosEx(self, sts_id, position, speed, acc):
         txpacket = [acc, self.sts_lobyte(position), self.sts_hibyte(position), 0, 0, self.sts_lobyte(speed), self.sts_hibyte(speed)]

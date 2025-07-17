@@ -25,7 +25,7 @@ from STservo_sdk import *  # Uses STServo SDK library
 
 # Settings
 # STS_IDS = [4]               # Servo IDs
-motor_IDS = [1,2,3,4]
+motor_IDS = [1,2,3,4,5]
 BAUDRATE = 1000000             # Default baudrate
 DEVICENAME = 'COM3'            # Change this to match port (Linux: '/dev/ttyUSB0')
 
@@ -98,6 +98,12 @@ while True:
         sts_comm_result, sts_error = packetHandler.WriteSpec(motor_IDS[3], STS_MOVING_SPEED, STS_MOVING_ACC)
     elif joystick.get_button(3):
         print(motor_IDS[3], "Counter-clockwise")
+        sts_comm_result, sts_error = packetHandler.WriteSpec(motor_IDS[3], -STS_MOVING_SPEED, STS_MOVING_ACC)
+    elif joystick.get_button(1):
+        print(motor_IDS[4], "Clockwise")
+        sts_comm_result, sts_error = packetHandler.WriteSpec(motor_IDS[3], STS_MOVING_SPEED, STS_MOVING_ACC)
+    elif joystick.get_button(2):
+        print(motor_IDS[4], "Counter-clockwise")
         sts_comm_result, sts_error = packetHandler.WriteSpec(motor_IDS[3], -STS_MOVING_SPEED, STS_MOVING_ACC)
     elif joystick.get_button(8):
         print(motor_IDS[0], "Stop All")

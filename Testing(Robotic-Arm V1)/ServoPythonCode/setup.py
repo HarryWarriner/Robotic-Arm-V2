@@ -111,7 +111,7 @@ if DESIRED_Mode == 0:
     packetHandler.write1ByteTxRx(CURRENT_ID, STS_MODE, 0)
     
     min_limit = 0
-    max_limit =  23600
+    max_limit =  17000
 
     packetHandler.write2ByteTxRx(CURRENT_ID, STS_MIN_ANGLE_LIMIT_L, min_limit & 0xFFFF)
     packetHandler.write2ByteTxRx(CURRENT_ID, STS_MAX_ANGLE_LIMIT_L, max_limit & 0xFFFF)

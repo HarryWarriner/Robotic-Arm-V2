@@ -26,7 +26,7 @@ from STservo_sdk import *  # Uses STServo SDK library
 
 # Settings
 # STS_IDS = [4]               # Servo IDs
-motor_IDS = [1,2,3,4]
+motor_IDS = [1,2,3,4,5]
 BAUDRATE = 1000000             # Default baudrate
 DEVICENAME = 'COM3'            # Change this to match port (Linux: '/dev/ttyUSB0')
 
@@ -223,6 +223,14 @@ while running:
         elif joystick.get_button(3):
             target_position[3] = max(0, target_position[3] - STS_MOVING_SPEED)
             print(motor_IDS[3], "Counter-clockwise", target_position)
+        
+        # Servo 5
+        if joystick.get_button(1):
+            target_position[4] = min(maxLimits[4], target_position[4] + STS_MOVING_SPEED)
+            print(motor_IDS[4], "Clockwise", target_position)
+        elif joystick.get_button(2):
+            target_position[4] = max(0, target_position[4] - STS_MOVING_SPEED)
+            print(motor_IDS[4], "Counter-clockwise", target_position)
 
         last_update_time = now
 
