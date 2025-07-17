@@ -27,21 +27,26 @@ from STservo_sdk import *  # Uses STServo SDK library
 # Settings
 # STS_IDS = [4]               # Servo IDs
 motor_IDS = [1,2,3,4,5]
+starting_angles=[0,67.7,-148,48,0]
 BAUDRATE = 1000000             # Default baudrate
-DEVICENAME = 'COM3'            # Change this to match port (Linux: '/dev/ttyUSB0')
+DEVICENAME = 'COM4'            # Change this to match port (Linux: '/dev/ttyUSB0')
 
 TICKS_PER_TURN = 4096
 
-STS_MOVING_SPEED = 2400  # Pattern of speeds
+STS_MOVING_SPEED = 1200  # Pattern of speeds
 STS_MOVING_ACC = 50
         #Motors = [1, 2, 3, 4, 5]
 target_position = []
+target_angle = []
 maxLimits = []
 minLimits = []
 raw_position = []
 prev_pos = {}
 turn_count = {}
 abs_positions = {}
+abs_angle_positions ={}
+max_angle=[]
+output_position = []
 
 
 # Setup
@@ -113,22 +118,33 @@ def usefulinfo():
         
         
     print("Absolute Position:", abs_positions)
+    print("Angles (absolute)", abs_angle_positions)
     print("Raw Position:", raw_position)
     print("Target Position:", target_position)
+    print("Output Position:", output_position)
 
 for sid in motor_IDS:
     target_position.append(0)
+    output_position.append(0)
+    target_angle.append(starting_angles[sid-1])
     raw_pos, _, _ = packetHandler.ReadPos(sid)
     raw_position.append(unsigned_to_signed_16bit(raw_pos))
     prev_pos[sid] = unsigned_to_signed_16bit(raw_pos)
     turn_count[sid] = 0
     abs_positions[sid] = 0
+    abs_angle_positions[sid] = starting_angles[sid -1]
     max_val, _, _ = packetHandler.read2ByteTxRx(sid, STS_MAX_ANGLE_LIMIT_L)
     min_val, _, _ = packetHandler.read2ByteTxRx(sid, STS_MIN_ANGLE_LIMIT_L)
+    maxangle = (unsigned_to_signed_16bit(max_val) * (18/TICKS_PER_TURN)) + starting_angles[sid - 1] # 18 because 20:1 ratio, 360/20 =18
+    max_angle.append(maxangle)
     maxLimits.append(unsigned_to_signed_16bit(max_val))
     minLimits.append(unsigned_to_signed_16bit(min_val))
+
+    
 print("Max Limits:", maxLimits)
 print("Max Limits:", minLimits)
+print("Starting Angles:", starting_angles)
+print("Max Angles:", max_angle)
 usefulinfo()
 
 
@@ -148,8 +164,10 @@ while running:
     axis_valy = joystick.get_axis(0)
     axis_valx = joystick.get_axis(1)
 
+    # Sending the array of angles to the motor
     for sid in motor_IDS:
-        packetHandler.WriteSignedPosEx(sid, target_position[sid - 1], STS_MOVING_SPEED, STS_MOVING_ACC)
+        output_position[sid-1] = int((target_angle[sid-1]-starting_angles[sid-1]) * (TICKS_PER_TURN / 18))
+        packetHandler.WriteSignedPosEx(sid, output_position[sid - 1], STS_MOVING_SPEED, STS_MOVING_ACC)
 
     for sid in motor_IDS:
         raw_pos, _, _ = packetHandler.ReadPos(sid)
@@ -165,6 +183,7 @@ while running:
 
         abs_positions[sid] = current_pos + turn_count[sid] * TICKS_PER_TURN
         prev_pos[sid] = current_pos
+        abs_angle_positions[sid] = starting_angles[sid-1] + (abs_positions[sid] * (18/TICKS_PER_TURN))
     
     if joystick.get_button(8):
         usefulinfo()
@@ -195,42 +214,56 @@ while running:
         if joystick.get_button(5):
             
             target_position[0] = min(maxLimits[0], target_position[0] + STS_MOVING_SPEED)
-            print(motor_IDS[0], "Clockwise", target_position)
+            target_angle[0] = starting_angles[0] + (target_position[0] * (18/TICKS_PER_TURN))
+            print(motor_IDS[0], "Clockwise", target_angle)
+            print(target_angle)
         elif joystick.get_button(4):
             target_position[0] = max(0, target_position[0] - STS_MOVING_SPEED)
-            print(motor_IDS[0], "Counter-clockwise", target_position)
+            target_angle[0] = starting_angles[0] + (target_position[0] * (18/TICKS_PER_TURN))
+            print(motor_IDS[0], "Counter-clockwise", target_angle)
+            print(target_angle)
 
         # Servo 2
         if axis_valy > 0.1:
             target_position[1] = min(maxLimits[1], target_position[1] + STS_MOVING_SPEED)
-            print(motor_IDS[1], "Clockwise", target_position)
+            target_angle[1] = starting_angles[1] + (target_position[1] * (18/TICKS_PER_TURN))
+            print(motor_IDS[1], "Clockwise", target_angle)
+            print(target_angle)
         elif axis_valy < -0.1:
             target_position[1] = max(0, target_position[1] - STS_MOVING_SPEED)
-            print(motor_IDS[1], "Counter-clockwise", target_position)
+            target_angle[1] = starting_angles[1] + (target_position[1] * (18/TICKS_PER_TURN))
+            print(motor_IDS[1], "Counter-clockwise", target_angle)
+            print(target_angle)
 
         # Servo 3
         if axis_valx > 0.1:
             target_position[2] = min(maxLimits[2], target_position[2] + STS_MOVING_SPEED)
-            print(motor_IDS[2], "Clockwise", target_position)
+            target_angle[2] = starting_angles[2] + (target_position[2] * (18/TICKS_PER_TURN))
+            print(motor_IDS[2], "Clockwise", target_angle)
         elif axis_valx < -0.1:
             target_position[2] = max(0, target_position[2] - STS_MOVING_SPEED)
-            print(motor_IDS[2], "Counter-clockwise", target_position)
+            target_angle[2] = starting_angles[2] + (target_position[2] * (18/TICKS_PER_TURN))
+            print(motor_IDS[2], "Counter-clockwise",target_angle)
 
         # Servo 4
         if joystick.get_button(0):
             target_position[3] = min(maxLimits[3], target_position[3] + STS_MOVING_SPEED)
-            print(motor_IDS[3], "Clockwise", target_position)
+            target_angle[3] = starting_angles[3] + (target_position[3] * (18/TICKS_PER_TURN))
+            print(motor_IDS[3], "Clockwise", target_angle)
         elif joystick.get_button(3):
             target_position[3] = max(0, target_position[3] - STS_MOVING_SPEED)
-            print(motor_IDS[3], "Counter-clockwise", target_position)
+            target_angle[3] = starting_angles[3] + (target_position[3] * (18/TICKS_PER_TURN))
+            print(motor_IDS[3], "Counter-clockwise", target_angle)
         
         # Servo 5
         if joystick.get_button(1):
             target_position[4] = min(maxLimits[4], target_position[4] + STS_MOVING_SPEED)
-            print(motor_IDS[4], "Clockwise", target_position)
+            target_angle[4] = starting_angles[4] + (target_position[4] * (18/TICKS_PER_TURN))
+            print(motor_IDS[4], "Clockwise", target_angle)
         elif joystick.get_button(2):
             target_position[4] = max(0, target_position[4] - STS_MOVING_SPEED)
-            print(motor_IDS[4], "Counter-clockwise", target_position)
+            target_angle[4] = starting_angles[4] + (target_position[4] * (18/TICKS_PER_TURN))
+            print(motor_IDS[4], "Counter-clockwise", target_angle)
 
         last_update_time = now
 
