@@ -32,21 +32,24 @@ BAUDRATE = 1000000
 DEVICENAME = 'COM4'            # Change this to match port (Linux: '/dev/ttyUSB0')
 
 TICKS_PER_TURN = 4096
-
 STS_MOVING_SPEED = 1200
 STS_MOVING_ACC = 50
 
+# Inital 3d target:
+x = 10
+y = 0
+z= 15
+phi = -np.pi / 2  # orientation
+
 output_position = []
 target_angle = []
+
 # Link lengths in cm
 l1 = 22.85
 l2 = 22.85
 l3 = 24.25  
 
-# Coordinates
-x = -20  # target x in cm
-y = -10  # target y in cm
-phi = -np.pi/2  # desired end-effector orientation in radians
+
 
 
 # Setup
@@ -107,51 +110,52 @@ while not all_stopped:
     time.sleep(0.05)  
 print("At Zero")
 
-def unsigned_to_signed_16bit(val):
-    return val - 0x10000 if val > 0x7FFF else val
 
-
-def analytical_ik_3dof(x, y, phi=0.0):
+def analytical_ik_3dof_with_base(x, y, z, phi):
     """
-    x, y = desired end-effector position (in cm)
-    phi = desired end-effector orientation (in radians)
+    Full 3D IK:
+    - x, y: horizontal coordinates (base plane)
+    - z: height
+    - phi: desired orientation in the XZ plane
 
-    Returns θ1, θ2, θ3 in degrees or None if unreachable
+    Returns [θ0, θ1, θ2, θ3] in degrees or None if unreachable.
     """
-    # Compute wrist position
-    wx = x - l3 * np.cos(phi)
-    wy = y - l3 * np.sin(phi)
+    theta0 = np.arctan2(y, x)  # Base rotation
+
+    r = np.sqrt(x**2 + y**2)   # Horizontal distance from base
+    wx = r - l3 * np.cos(phi)
+    wz = z - l3 * np.sin(phi)
 
     # Distance squared to wrist
-    r_sq = wx**2 + wy**2
+    r_sq = wx**2 + wz**2
     cos_theta2 = (r_sq - l1**2 - l2**2) / (2 * l1 * l2)
-
+    
     if abs(cos_theta2) > 1:
-        return None  # unreachable
+        return None
 
     theta2 = np.arccos(cos_theta2)
     k1 = l1 + l2 * np.cos(theta2)
     k2 = l2 * np.sin(theta2)
-    theta1 = np.arctan2(wy, wx) - np.arctan2(k2, k1)
+    theta1 = np.arctan2(wz, wx) - np.arctan2(k2, k1)
     theta3 = phi - theta1 - theta2
 
     # Return angles in degrees
-    return np.degrees([theta1, theta2, theta3])
+    return np.degrees([theta0, theta1, theta2, theta3])
 
-def updatexy(x,y,phi):
-    angles = analytical_ik_3dof(x, y, phi)
-
+def update_position(x, y, z, phi):
+    angles = analytical_ik_3dof_with_base(x, y, z, phi)
     if angles is None:
-        print("Target is unreachable.")
-    else:
-        theta1, theta2, theta3 = angles
-        print(f"Theta1: {theta1:.2f}°, Theta2: {theta2:.2f}°, Theta3: {theta3:.2f}°")
-        print("Output", output_position)
-
-        target_angle[1] = int(theta1)
-        target_angle[2] = int(-theta2)
-        target_angle[3] = int(450-theta3)
-        print(target_angle)
+            print("Unreachable.")
+            return
+    
+    theta0, theta1, theta2, theta3 = angles
+    print(f"θ0: {theta0:.1f}, θ1: {theta1:.1f}, θ2: {theta2:.1f}, θ3: {theta3:.1f}")
+    print("Output", output_position)
+    target_angle[0] = int(theta0)
+    target_angle[1] = int(theta1)
+    target_angle[2] = int(-theta2)
+    target_angle[3] = int(450-theta3)
+    print(target_angle)
 
 
 
@@ -196,23 +200,31 @@ while running:
         # x axis
         if axis_valx > 0.1:
             y -= 1
-            updatexy(x,y,phi)
-            print(motor_IDS[2], target_angle , x,y)
+            update_position(x,y,z,phi)
+            print(target_angle , x,y,z)
         elif axis_valx < -0.1:
             y += 1
-            updatexy(x,y,phi)
-            print(motor_IDS[2], target_angle , x,y)
+            update_position(x,y,z,phi)
+            print(target_angle , x,y,z)
 
         # y axis
         if axis_valy > 0.1:
             x += 1
-            updatexy(x,y,phi)
-            print(motor_IDS[1], target_angle , x,y)
+            update_position(x,y,z,phi)
+            print(target_angle , x,y,z)
         elif axis_valy < -0.1:
             x -= 1
-            updatexy(x,y,phi)
-            print(motor_IDS[1], target_angle , x,y)
+            update_position(x,y,z,phi)
+            print(target_angle , x,y,z)
 
+        if joystick.get_button(1):
+            z += 1
+            update_position(x,y,z,phi)
+            print(target_angle , x,y,z)
+        elif joystick.get_button(2):
+            z -= 1
+            update_position(x,y,z,phi)
+            print(target_angle , x,y,z)
         last_update_time = now
 
 
