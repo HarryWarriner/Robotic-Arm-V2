@@ -1,0 +1,6 @@
+numpy
+pybullet
+lcm
+ipython
+ipykernel
+pandas
