@@ -4,6 +4,9 @@ import sys
 import os
 import pygame
 import time
+import numpy as np
+import matplotlib.pyplot as plt
+
 
 if os.name == 'nt':
     import msvcrt
@@ -29,7 +32,7 @@ from STservo_sdk import *  # Uses STServo SDK library
 motor_IDS = [1,2,3,4,5]
 starting_angles=[0,67.7,-148,48,0]
 BAUDRATE = 1000000             # Default baudrate
-DEVICENAME = 'COM4'            # Change this to match port (Linux: '/dev/ttyUSB0')
+DEVICENAME = 'COM3'            # Change this to match port (Linux: '/dev/ttyUSB0')
 
 TICKS_PER_TURN = 4096
 
@@ -47,6 +50,14 @@ abs_positions = {}
 abs_angle_positions ={}
 max_angle=[]
 output_position = []
+
+# For logging accuracy over time
+time_log = []
+target_angle_log = {sid: [] for sid in motor_IDS}
+actual_angle_log = {sid: [] for sid in motor_IDS}
+error_angle_log = {sid: [] for sid in motor_IDS}
+velocity_log = {sid: [] for sid in motor_IDS}
+acceleration_log = {sid: [] for sid in motor_IDS}
 
 
 # Setup
@@ -106,6 +117,86 @@ def unsigned_to_signed_16bit(val):
     return val - 0x10000 if val > 0x7FFF else val
 
 
+
+
+def compute_accuracy():
+    errors = []
+    print("\n--- Accuracy Report ---")
+    for i, sid in enumerate(motor_IDS):
+        target_pos_ticks = output_position[i]  # Target position in encoder ticks
+        actual_pos_ticks = abs_positions[sid]  # Measured absolute position in ticks
+
+        error_ticks = actual_pos_ticks - target_pos_ticks
+        error_deg = error_ticks * (18 / TICKS_PER_TURN)  # Convert to degrees
+
+        print(f"Motor {sid}:")
+        print(f"  Target Pos (ticks): {target_pos_ticks}")
+        print(f"  Actual Pos (ticks): {actual_pos_ticks}")
+        print(f"  Error: {error_ticks} ticks | {error_deg:.2f} degrees")
+
+        errors.append(error_deg)
+
+    # Summary stats
+    mean_error = np.mean(errors)
+    std_dev_error = np.std(errors)
+    max_error = np.max(np.abs(errors))
+
+    print("\nSummary:")
+    print(f"  Mean Error: {mean_error:.2f}°")
+    print(f"  Std Dev: {std_dev_error:.2f}°")
+    print(f"  Max Error: {max_error:.2f}°")
+    print("-----------------------\n")
+
+def plot_accuracy():
+    print("Generating accuracy plots...")
+    for sid in motor_IDS:
+        plt.figure(figsize=(10, 5))
+        plt.title(f"Motor {sid} - Target vs Actual Angle Over Time")
+        plt.plot(time_log, target_angle_log[sid], label='Target Angle (°)')
+        plt.plot(time_log, actual_angle_log[sid], label='Actual Angle (°)')
+        plt.xlabel("Time (s)")
+        plt.ylabel("Angle (°)")
+        plt.legend()
+        plt.grid(True)
+        plt.show()
+
+        plt.figure(figsize=(10, 4))
+        plt.title(f"Motor {sid} - Error Over Time")
+        plt.plot(time_log, error_angle_log[sid], label='Error (Target - Actual)', linestyle='--')
+        plt.xlabel("Time (s)")
+        plt.ylabel("Error (°)")
+        plt.legend()
+        plt.grid(True)
+        plt.show()
+def plot_joint_trajectory():
+    print("Plotting joint trajectory smoothness...")
+
+    for sid in motor_IDS:
+        # Velocity Plot
+        t_vel = time_log[1:]                          # Velocity starts at 2nd time point
+        v_log = velocity_log[sid][1:]                 # Align lengths
+        plt.figure(figsize=(10, 4))
+        plt.title(f"Motor {sid} - Joint Velocity Over Time")
+        plt.plot(t_vel, v_log, label='Velocity (°/s)')
+        plt.xlabel("Time (s)")
+        plt.ylabel("Velocity (°/s)")
+        plt.grid(True)
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
+
+        # Acceleration Plot
+        t_acc = time_log[2:]                          # Acceleration starts at 3rd time point
+        a_log = acceleration_log[sid][2:]             # Align lengths
+        plt.figure(figsize=(10, 4))
+        plt.title(f"Motor {sid} - Joint Acceleration Over Time")
+        plt.plot(t_acc, a_log, label='Acceleration (°/s²)', color='orange')
+        plt.xlabel("Time (s)")
+        plt.ylabel("Acceleration (°/s²)")
+        plt.grid(True)
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
 
 
 def usefulinfo():
@@ -185,8 +276,46 @@ while running:
         prev_pos[sid] = current_pos
         abs_angle_positions[sid] = starting_angles[sid-1] + (abs_positions[sid] * (18/TICKS_PER_TURN))
     
+    if now - last_update_time > update_interval:
+        time_log.append(now)
+
+        for i, sid in enumerate(motor_IDS):
+            tgt_angle = target_angle[i]
+            act_angle = abs_angle_positions[sid]
+            err_angle = tgt_angle - act_angle
+
+            target_angle_log[sid].append(tgt_angle)
+            actual_angle_log[sid].append(act_angle)
+            error_angle_log[sid].append(err_angle)
+            
+        for sid in motor_IDS:
+            angle_list = actual_angle_log[sid]
+
+            # Velocity
+            if len(time_log) >= 2:
+                dt = time_log[-1] - time_log[-2]
+                dtheta = angle_list[-1] - angle_list[-2]
+                velocity = dtheta / dt
+            else:
+                velocity = 0.0
+            velocity_log[sid].append(velocity)
+
+            # Acceleration
+            if len(time_log) >= 3:  # We need at least 3 timestamps to compute 2 velocities
+                dt_vel = time_log[-2] - time_log[-3]
+                dv = velocity_log[sid][-1] - velocity_log[sid][-2]
+                acceleration = dv / dt_vel
+            else:
+                acceleration = 0.0
+            acceleration_log[sid].append(acceleration)
+
+
+
+    
     if joystick.get_button(8):
         usefulinfo()
+        print("Compute_accuracy")
+        compute_accuracy()
         time.sleep(0.5)
 
     if joystick.get_button(9):  # ESC button
@@ -278,6 +407,11 @@ while running:
 # # # Stop the motor before exiting
 # # for sid in motor_IDS:
 # #     packetHandler.WriteSignedPosEx(sid, 0, STS_MOVING_SPEED, STS_MOVING_ACC)
+
+
+# plot_accuracy()
+# plot_joint_trajectory()
+
 
 portHandler.closePort()
 print("Port closed. Motors stopped. Program exited.")
