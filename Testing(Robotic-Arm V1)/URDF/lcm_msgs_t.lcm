@@ -1,0 +1,27 @@
+package lcm_msgs;
+
+struct franka_state_t {
+    double position[7];
+    double velocity[7];
+    boolean gripper_open;
+}
+
+struct franka_joint_target_t {
+    double position[7];
+}
+
+struct gripper_command_t {
+    boolean open;
+}
+
+struct keyboard_state_t {
+    int64_t nkeys;
+    string label[nkeys];
+    boolean state[nkeys];
+}
+
+struct box_state_t {
+    double x;
+    double y;
+    double z;
+}
