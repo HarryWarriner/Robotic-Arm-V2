@@ -29,7 +29,7 @@ from STservo_sdk import *
 motor_IDS = [1,2,3,4,5]
 starting_angles=[0,67.7,-148,48,0]
 BAUDRATE = 1000000             
-DEVICENAME = 'COM4'            # Change this to match port (Linux: '/dev/ttyUSB0')
+DEVICENAME = 'COM3'            # Change this to match port (Linux: '/dev/ttyUSB0')
 
 TICKS_PER_TURN = 4096
 
