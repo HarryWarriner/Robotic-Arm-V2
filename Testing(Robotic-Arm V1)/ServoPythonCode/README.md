@@ -1,7 +1,13 @@
-# Setup
+# ServoPythonCode
+
+All the code for movment for the robotic arm.
+
+
+
+## Setup
 
 There are 5 serial servo motors their targeted positions are saved into an array. <br>
-The max they can move go between 0 and 32767.<br>
+The max they can move go between 0 and 32767. (currently)<br>
 - The first motor uses the full range
 - The second motor goes to a max of 17000
 - The third: 24000
