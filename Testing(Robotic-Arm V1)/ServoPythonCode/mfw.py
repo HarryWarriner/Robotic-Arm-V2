@@ -36,7 +36,7 @@ from STservo_sdk import *                      # Uses STServo SDK library
 # Default setting
 STS_ID                      = 1                 # STServo ID : 1
 BAUDRATE                    = 1000000           # STServo default baudrate : 1000000
-DEVICENAME                  = 'COM3'    # Check which port is being used on your controller
+DEVICENAME                  = 'COM6'    # Check which port is being used on your controller
                                                 # ex) Windows: "COM1"   Linux: "/dev/ttyUSB0" Mac: "/dev/tty.usbserial-*"
 
 # Initialize PortHandler instance
