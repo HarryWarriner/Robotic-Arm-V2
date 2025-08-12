@@ -80,10 +80,14 @@ class sts(protocol_packet_handler):
     def Write4Byte(self, sts_id, address, data):
         return self.write4ByteTxRx(sts_id, address, data)
 
+
+
     def WritePosEx(self, sts_id, position, speed, acc):
         txpacket = [acc, self.sts_lobyte(position), self.sts_hibyte(position), 0, 0, self.sts_lobyte(speed), self.sts_hibyte(speed)]
         return self.writeTxRx(sts_id, STS_ACC, len(txpacket), txpacket)
     
+
+
     def WritePosExOff(self, sts_id, position, speed, acc):
         txpacket = [acc,
                     self.sts_lobyte(position),
@@ -98,9 +102,6 @@ class sts(protocol_packet_handler):
         txpacket = [acc, position & 0xFF, (position >> 8) & 0xFF, 0, 0, speed & 0xFF, (speed >> 8) & 0xFF]
         return self.writeTxRx(sts_id, STS_ACC, len(txpacket), txpacket)
 
-
-
-
     def ReadPos(self, sts_id):
         sts_present_position, sts_comm_result, sts_error = self.read2ByteTxRx(sts_id, STS_PRESENT_POSITION_L)
         return self.sts_tohost(sts_present_position, 15), sts_comm_result, sts_error
@@ -114,6 +115,30 @@ class sts(protocol_packet_handler):
         sts_present_position = self.sts_loword(sts_present_position_speed)
         sts_present_speed = self.sts_hiword(sts_present_position_speed)
         return self.sts_tohost(sts_present_position, 15), self.sts_tohost(sts_present_speed, 15), sts_comm_result, sts_error
+
+    def ReadPosSpeedAccCurrent(self, sts_id):
+        # Read 4 bytes: [Pos_L, Pos_H, Speed_L, Speed_H] starting at STS_PRESENT_POSITION_L
+        pos_speed_32, comm1, err1 = self.read4ByteTxRx(sts_id, STS_PRESENT_POSITION_L)
+        pos_raw = self.sts_loword(pos_speed_32)
+        speed_raw = self.sts_hiword(pos_speed_32)
+
+        # Convert to host signed (15-bit)
+        pos = self.sts_tohost(pos_raw, 15)
+        speed = self.sts_tohost(speed_raw, 15)
+
+        # Read ACC from SRAM (0x29 / STS_ACC)
+        acc, comm2, err2 = self.read1ByteTxRx(sts_id, STS_ACC)
+
+        # Read current (2bytes: 69, 70)
+        current_raw, comm3, err3 = self.read2ByteTxRx(sts_id, STS_PRESENT_CURRENT_L)
+        current = self.sts_tohost(current_raw,15)
+
+        # Prefer to surface any error from either read
+        comm_result = next((c for c in (comm1, comm2, comm3) if c != 0), 0)
+        sts_error = next((e for e in (err1, err2, err3) if e != 0), 0)
+
+        return pos, speed, acc,current, comm_result, sts_error
+
 
     def ReadMoving(self, sts_id):
         moving, sts_comm_result, sts_error = self.read1ByteTxRx(sts_id, STS_MOVING)

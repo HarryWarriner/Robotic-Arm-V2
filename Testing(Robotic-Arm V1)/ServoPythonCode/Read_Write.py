@@ -72,7 +72,7 @@ else:
 
 # Enable position mode
 for sid in MOTOR_IDS:
-    result, error = packetHandler.write1ByteTxRx(sid, STS_MODE, 0)
+    result, error = packetHandler.write1ByteTxRx(sid, STS_MODE, 3)
     if result != COMM_SUCCESS:
         print(f"ID {sid}: {packetHandler.getTxRxResult(result)}")
     elif error != 0:
@@ -139,19 +139,23 @@ def showPosition(ID):
 
 def moveBySteps(ID, steps, speed, acc):
     global global_position
-    print("Moving by steps:", steps)
+    # print("Moving by steps:", steps)
     global_position += steps
     if steps<0:
         steps = -steps + 0x8000  # Convert to negative steps
     
-    sts_comm_result, sts_error = packetHandler.WritePosEx(ID, steps, speed, acc)
+    with comm_lock:
+        sts_comm_result, sts_error = packetHandler.WritePosEx(ID, steps, speed, acc)
+
     if sts_comm_result != COMM_SUCCESS:
         print("%s" % packetHandler.getTxRxResult(sts_comm_result))
     elif sts_error != 0:
         print("%s" % packetHandler.getRxPacketError(sts_error))
-        
+      
     while True:
-      result, sts_comm_result, sts_error= packetHandler.ReadByte(ID, 0x42) # Is it moving?
+      with comm_lock:
+        result, sts_comm_result, sts_error= packetHandler.ReadByte(ID, 0x42) # Is it moving?
+        
       if sts_comm_result != COMM_SUCCESS:
         print("%s" % packetHandler.getTxRxResult(sts_comm_result))
       elif sts_error != 0:
