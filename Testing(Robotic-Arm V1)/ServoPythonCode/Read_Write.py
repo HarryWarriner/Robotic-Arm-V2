@@ -37,7 +37,7 @@ from STservo_sdk import *
 STS_ID = 1
 MOTOR_IDS = [1]
 BAUDRATE = 1000000
-DEVICENAME  = 'COM6'
+DEVICENAME  = 'COM3'
  # e.g. Windows: "COM1"   Linux: "/dev/ttyUSB0" Mac: "/dev/tty.usbserial-*"
 SPEED = 1000
 ACC = 100
