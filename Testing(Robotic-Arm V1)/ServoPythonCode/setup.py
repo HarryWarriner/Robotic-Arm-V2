@@ -30,7 +30,7 @@ from STservo_sdk.sts import STS_ID
 
 # === Configuration ===
 BAUDRATE = 1000000
-DEVICENAME = 'COM3'
+DEVICENAME = 'COM5'
 STS_MOVING_SPEED = 2400
 STS_MOVING_ACC = 50
 ROTATION_TICKS = 4096  # One turn = 4096 ticks

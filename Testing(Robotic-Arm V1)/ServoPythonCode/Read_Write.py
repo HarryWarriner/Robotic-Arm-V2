@@ -37,7 +37,7 @@ from STservo_sdk import *
 STS_ID = 1
 MOTOR_IDS = [1]
 BAUDRATE = 1000000
-DEVICENAME  = 'COM3'
+DEVICENAME  = 'COM5'
  # e.g. Windows: "COM1"   Linux: "/dev/ttyUSB0" Mac: "/dev/tty.usbserial-*"
 SPEED = 1000
 ACC = 100
@@ -51,6 +51,8 @@ MOTOR_GLOBALS_POS = {}
 MOTOR_CURRENT_ROTATION ={}
 LAST_POS = {}
 CUMULATIVE_STEPS = {}
+
+
 
 # Threading settings
 print_lock = threading.Lock()
