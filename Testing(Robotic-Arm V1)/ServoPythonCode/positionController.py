@@ -352,6 +352,8 @@ while running:
             print(motor_IDS[0], "Counter-clockwise", target_angle)
             print(target_angle)
 
+            
+
         # Servo 2
         if axis_valy > 0.1:
             target_position[1] = min(maxLimits[1], target_position[1] + STS_MOVING_SPEED)

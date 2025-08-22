@@ -333,6 +333,11 @@ def position_controller(ID):
         difference = TARGET_STEPS[ID] - MOTOR_GLOBALS_STEPS[ID]
         moveBySteps(ID, difference, 1200, 50)
         read_abs67(ID)
+
+def manual_position_control(ID):
+    difference = TARGET_STEPS[ID] - MOTOR_GLOBALS_STEPS[ID]
+    moveBySteps(ID, difference, 1200, 50)
+    read_abs67(ID)
        
 def dump_registers():
     for index in range(0, 70):
@@ -378,8 +383,8 @@ def update_target_steps(ID, delta_steps):
 
 
 # start controllers (NEW)
-for sid in MOTOR_IDS:
-    spawn(f"ctrl_{sid}", position_controller, sid)
+# for sid in MOTOR_IDS:
+#     spawn(f"ctrl_{sid}", position_controller, sid)
 
 # ------------- Key loop (each action on its own thread) -------------
 try:
@@ -402,6 +407,8 @@ try:
             spawn("m1_minus", moveBySteps, MOTOR_IDS[1], -1024, SPEED, ACC)
         elif ch == 's':
             spawn("m1_plus", moveBySteps, MOTOR_IDS[1], +1024, SPEED, ACC)
+        elif ch == 'o':
+            spawn("manual difference", manual_position_control, 1 ) 
         # else: ignore other keys
 finally:
     # Give in-flight workers a brief chance to finish nicely
