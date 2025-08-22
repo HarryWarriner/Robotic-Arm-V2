@@ -47,6 +47,9 @@ ACC = 50
 TICKS_PER_TURN = 4096
 HALF_TURN = TICKS_PER_TURN // 2
 
+# Target controller limits (WritePosEx uses 16-bit w/ sign trick here)
+CHUNK_LIMIT = 30000       # keep under 0x7FFF
+
 # States
 MOTOR_GLOBALS_STEPS = {}
 MOTOR_CURRENT_ROTATION ={}
@@ -134,6 +137,17 @@ def update_rotation_from_abs67(sid: int, abs67: int):
         LAST_ABS67[sid] = abs67
         MOTOR_CURRENT_ROTATION[sid] = int(MOTOR_GLOBALS_STEPS[sid] // TICKS_PER_TURN)
         return MOTOR_CURRENT_ROTATION[sid]
+    
+def read_abs67(sid: int):
+    with comm_lock:
+        val, comm, err = packetHandler.Read2Byte(sid, 67)
+    if comm == COMM_SUCCESS and err == 0:
+        update_rotation_from_abs67(sid, val)
+    else:
+        with print_lock:
+            if comm != COMM_SUCCESS: print(packetHandler.getTxRxResult(comm))
+            if err != 0: print(packetHandler.getRxPacketError(err))
+    return val, comm, err
 
 
 
@@ -228,14 +242,16 @@ def showPosition(ID):
     with state_lock:
         rot = MOTOR_CURRENT_ROTATION[ID]
         global_steps = MOTOR_GLOBALS_STEPS.get(ID, 0)
+        tgt = TARGET_STEPS.get(ID, global_steps)
+        err = tgt - global_steps
 
     with print_lock:
         if sts_comm_result != COMM_SUCCESS:
             print(packetHandler.getTxRxResult(sts_comm_result))
         else:
             print(
-                "[ID:%03d] Speed:%d Acc:%d (~%d steps/s^2) Current:%d global_steps:%d byte67:%d Rotations:%d"
-                % (ID,  speed, acc, acc * 100, current, global_steps, result67, rot)
+                "[ID:%03d] Speed:%d Acc:%d (~%d steps/s^2) Current:%d global_steps:%d byte67:%d Rot:%d Target:%d Err:%d"
+                % (ID, speed, acc, acc * 100, current, global_steps, result67, rot, tgt, err)
             )
         if sts_error != 0:
             print(packetHandler.getRxPacketError(sts_error))
@@ -245,45 +261,79 @@ def showPosition(ID):
             print(packetHandler.getRxPacketError(sts_error2))
     
 
-def moveBySteps(ID, steps, speed, acc):
+# def moveBySteps(ID, steps, speed, acc):
 
-    # with state_lock:
-        # MOTOR_GLOBALS_POS[ID] = MOTOR_GLOBALS_POS.get(ID, 0) + steps
+#     # with state_lock:
+#         # MOTOR_GLOBALS_POS[ID] = MOTOR_GLOBALS_POS.get(ID, 0) + steps
 
-    # MOTOR_GLOBALS_POS[ID] += steps
-    # if steps<0:
-    #     steps = -steps + 0x8000  # Convert to negative steps
+#     # MOTOR_GLOBALS_POS[ID] += steps
+#     # if steps<0:
+#     #     steps = -steps + 0x8000  # Convert to negative steps
 
-    tx_steps = -steps + 0x8000 if steps < 0 else steps
+#     tx_steps = -steps + 0x8000 if steps < 0 else steps
     
+#     with comm_lock:
+#         sts_comm_result, sts_error = packetHandler.WritePosEx(ID, tx_steps, speed, acc)
+
+#     if sts_comm_result != COMM_SUCCESS:
+#         with print_lock:
+#             print("%s" % packetHandler.getTxRxResult(sts_comm_result))
+#         return
+#     if sts_error != 0:
+#         with print_lock:
+#             print("%s" % packetHandler.getRxPacketError(sts_error))
+#         return
+    
+#     # poll moving flag
+#     while True:
+#         with comm_lock:
+#             moving, comm2, err2 = packetHandler.ReadByte(ID, 0x42)  # STS_MOVING
+#         if comm2 != COMM_SUCCESS:
+#             with print_lock:
+#                 print(packetHandler.getTxRxResult(comm2))
+#             break
+#         if err2 != 0:
+#             with print_lock:
+#                 print(packetHandler.getRxPacketError(err2))
+#             break
+#         if moving == 0:
+#             break
+#         time.sleep(0.1)
+def moveBySteps(ID, steps, speed, acc):
+    """One-shot relative move by steps (handles sign encoding), blocks until stop."""
+    # Encode negative as +0x8000 trick used by this SDK
+    tx_steps = -steps + 0x8000 if steps < 0 else steps
     with comm_lock:
         sts_comm_result, sts_error = packetHandler.WritePosEx(ID, tx_steps, speed, acc)
-
     if sts_comm_result != COMM_SUCCESS:
-        with print_lock:
-            print("%s" % packetHandler.getTxRxResult(sts_comm_result))
+        with print_lock: print(packetHandler.getTxRxResult(sts_comm_result))
         return
     if sts_error != 0:
-        with print_lock:
-            print("%s" % packetHandler.getRxPacketError(sts_error))
+        with print_lock: print(packetHandler.getRxPacketError(sts_error))
         return
-    
     # poll moving flag
     while True:
         with comm_lock:
             moving, comm2, err2 = packetHandler.ReadByte(ID, 0x42)  # STS_MOVING
         if comm2 != COMM_SUCCESS:
-            with print_lock:
-                print(packetHandler.getTxRxResult(comm2))
+            with print_lock: print(packetHandler.getTxRxResult(comm2))
             break
         if err2 != 0:
-            with print_lock:
-                print(packetHandler.getRxPacketError(err2))
+            with print_lock: print(packetHandler.getRxPacketError(err2))
             break
         if moving == 0:
             break
-        time.sleep(0.1)
+        time.sleep(0.05)
+    print(TARGET_STEPS, MOTOR_GLOBALS_STEPS)
 
+# ----------------- Position controller (NEW) -----------------
+def position_controller(ID):
+   
+    while True:
+        difference = TARGET_STEPS[ID] - MOTOR_GLOBALS_STEPS[ID]
+        moveBySteps(ID, difference, 1200, 50)
+        read_abs67(ID)
+       
 def dump_registers():
     for index in range(0, 70):
         with comm_lock:
@@ -312,15 +362,24 @@ def show_all_positions():
 # -- Angles ---
 
 def update_target_angles(ID, angle):
-    print("Target Angles and Steps")
-    TARGET_ANGLES[ID] += angle
-    steps = int(angle * ((TICKS_PER_TURN * GEAR_RATIOS[ID]) / 360))
-    TARGET_STEPS[ID] += steps
-    print(steps)
-    print(TARGET_ANGLES)
-    print(TARGET_STEPS)
+    steps = int(round(angle * (TICKS_PER_TURN * float(GEAR_RATIOS[ID]) / 360)))
+    with state_lock:
+        TARGET_ANGLES[ID] += angle   
+        TARGET_STEPS[ID] += steps
+    with print_lock:
+        print("Target Angles and Steps")
+        print(f"[{ID}] +{angle}° -> Δsteps={steps}, total_angle={TARGET_ANGLES[ID]}°, target_steps={TARGET_STEPS[ID]}")
+
+def update_target_steps(ID, delta_steps):
+    with state_lock:
+        TARGET_STEPS[ID] += int(delta_steps)
+    with print_lock:
+        print(f"[{ID}] Δtarget_steps={delta_steps} -> target_steps={TARGET_STEPS[ID]}")
 
 
+# start controllers (NEW)
+for sid in MOTOR_IDS:
+    spawn(f"ctrl_{sid}", position_controller, sid)
 
 # ------------- Key loop (each action on its own thread) -------------
 try:
